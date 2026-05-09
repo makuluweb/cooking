@@ -492,7 +492,7 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 4096,
       messages:[{ role:"user", content:prompt }]
     })
   });
@@ -503,7 +503,61 @@ async function callClaude(prompt) {
     throw new Error(msg);
   }
   const data = await res.json();
-  return data.content.map(b=>b.text||"").join("").replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+  let text = data.content.map(b=>b.text||"").join("");
+  // Strip markdown fences
+  text = text.replace(/^```json\s*/m,"").replace(/```\s*$/m,"").trim();
+  // Extract only the JSON structure (array or object)
+  const arrMatch = text.match(/\[([\s\S]*)/);
+  const objMatch = text.match(/\{([\s\S]*)/);
+  if (arrMatch) {
+    text = "[" + arrMatch[1];
+    // If truncated, attempt to close open structures
+    text = repairJson(text, "array");
+  } else if (objMatch) {
+    text = "{" + objMatch[1];
+    text = repairJson(text, "object");
+  }
+  return text.trim();
+}
+
+function repairJson(str, type) {
+  // Count opens vs closes to detect truncation
+  let opens = 0, closes = 0;
+  let inStr = false, esc = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"' && !esc) { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') opens++;
+    if (c === '}' || c === ']') closes++;
+  }
+  if (opens === closes) return str; // balanced, no repair needed
+  // Remove trailing incomplete token (unterminated string / incomplete key)
+  // Find last complete object boundary
+  let repaired = str;
+  // Remove trailing comma + incomplete content
+  repaired = repaired.replace(/,\s*[^,\]\}]*$/, "");
+  // Remove trailing unterminated string
+  repaired = repaired.replace(/,?\s*"[^"]*$/, "");
+  // Close open braces/brackets
+  let depth = { '{': 0, '[': 0 };
+  let stack = [];
+  inStr = false; esc = false;
+  for (let i = 0; i < repaired.length; i++) {
+    const c = repaired[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') stack.push('}');
+    if (c === '[') stack.push(']');
+    if ((c === '}' || c === ']') && stack.length) stack.pop();
+  }
+  // Close in reverse
+  while (stack.length) repaired += stack.pop();
+  return repaired;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -533,8 +587,8 @@ document.getElementById("btnSearch").addEventListener("click", async () => {
   try {
     const raw = await callClaude(
 `You are a South African potjiekos expert. Generate 4 authentic potjie recipes matching: ${criteria||"general South African potjie"}.
-Return ONLY a JSON array (no markdown, no explanation):
-[{"title":"","tags":[],"time":"","size":"","difficulty":"","intro":"","ingredients":[],"method":[],"tips":""}]`
+Be concise but complete. Return ONLY a valid JSON array, no markdown, no preamble, no explanation. Start your response with [ and end with ]:
+[{"title":"string","tags":["tag"],"time":"X hrs","size":"No.3 pot","difficulty":"Easy|Medium|Hard","intro":"One sentence description","ingredients":["qty item"],"method":["Step instruction"],"tips":"One tip"}]`
     );
     searchResults = JSON.parse(raw);
     renderSearchResults();
@@ -575,8 +629,8 @@ document.getElementById("btnSuggest").addEventListener("click", async () => {
   try {
     const raw = await callClaude(
 `You are a South African potjiekos expert. Ingredients available: ${ing}.${notes?" Notes: "+notes:""}
-Suggest ONE ideal potjie. Return ONLY a JSON object (no markdown):
-{"title":"","tags":[],"time":"","size":"","difficulty":"","intro":"","ingredients":[],"method":[],"tips":"","substitutions":""}`
+Suggest ONE ideal potjie. Be concise but complete. Return ONLY a valid JSON object, no markdown, no preamble. Start with { and end with }:
+{"title":"string","tags":["tag"],"time":"X hrs","size":"No.3 pot","difficulty":"Easy|Medium|Hard","intro":"One sentence","ingredients":["qty item"],"method":["Step instruction"],"tips":"One tip","substitutions":"Swap suggestions"}`
     );
     pantryRecipe = JSON.parse(raw);
     const el = document.getElementById("pantryResult");
