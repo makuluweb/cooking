@@ -279,7 +279,7 @@
 
   <!-- API warning banner (hidden when key present) -->
   <div id="apiBanner" class="card warn" style="display:none">
-    <span class="warn-text">⚠️ Enter your Anthropic API key above to enable AI features. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a></span>
+    <span class="warn-text">⚠️ Enter your Anthropic API key above to enable AI features. Keys start with <code style="background:#0002;padding:1px 5px;border-radius:3px">sk-ant-</code> — get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a></span>
   </div>
 
   <!-- ── TAB 0: Recipe Search ── -->
@@ -392,11 +392,19 @@ let currentAlbumId = null;
 let expandedAlbumRecipe = null;
 
 function loadState() {
-  try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"); return { apiKey:"", albums:[], ...s }; }
-  catch { return { apiKey:"", albums:[] }; }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { apiKey:"", albums:[] };
+    const s = JSON.parse(raw);
+    return {
+      apiKey:  typeof s.apiKey  === "string" ? s.apiKey  : "",
+      albums:  Array.isArray(s.albums)       ? s.albums  : [],
+    };
+  } catch { return { apiKey:"", albums:[] }; }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function uid() { return Math.random().toString(36).slice(2,10); }
+function apiKeyValid(key) { return typeof key === "string" && key.trim().startsWith("sk-ant-") && key.trim().length > 20; }
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Init
@@ -415,11 +423,23 @@ apiKeyInput.addEventListener("input", () => {
   saveState();
   updateApiStatus();
 });
+// Also handle paste events explicitly
+apiKeyInput.addEventListener("paste", () => {
+  setTimeout(() => {
+    state.apiKey = apiKeyInput.value.trim();
+    saveState();
+    updateApiStatus();
+  }, 10);
+});
+
 function updateApiStatus() {
-  const ok = state.apiKey.startsWith("sk-");
+  const ok = apiKeyValid(state.apiKey);
   apiDot.style.background = ok ? "var(--success)" : "var(--danger)";
-  apiDot.title = ok ? "API key set" : "Enter Anthropic API key";
+  apiDot.title = ok ? "API key connected ✓" : "Enter your Anthropic API key (starts with sk-ant-)";
   apiBanner.style.display = ok ? "none" : "block";
+  // Enable/disable action buttons
+  document.getElementById("btnSearch").disabled  = !ok;
+  document.getElementById("btnSuggest").disabled = !ok;
 }
 
 // Tabs
@@ -467,7 +487,8 @@ async function callClaude(prompt) {
     headers:{
       "Content-Type":"application/json",
       "x-api-key": state.apiKey,
-      "anthropic-version":"2023-06-01"
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
     },
     body: JSON.stringify({
       model: MODEL,
@@ -475,7 +496,12 @@ async function callClaude(prompt) {
       messages:[{ role:"user", content:prompt }]
     })
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const body = await res.text();
+    let msg = `API error ${res.status}`;
+    try { const j = JSON.parse(body); msg = j.error?.message || msg; } catch {}
+    throw new Error(msg);
+  }
   const data = await res.json();
   return data.content.map(b=>b.text||"").join("").replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
 }
@@ -484,7 +510,10 @@ async function callClaude(prompt) {
 //  TAB 0 — Search
 // ═══════════════════════════════════════════════════════════════════════
 document.getElementById("btnSearch").addEventListener("click", async () => {
-  if (!state.apiKey) return;
+  if (!apiKeyValid(state.apiKey)) {
+    document.getElementById("searchErr").textContent = "Please enter a valid Anthropic API key (sk-ant-…) in the header first.";
+    return;
+  }
   const extra = document.getElementById("searchExtra").value.trim();
   const criteria = [
     chipState.protein.length && `Protein: ${chipState.protein.join(", ")}`,
@@ -510,7 +539,7 @@ Return ONLY a JSON array (no markdown, no explanation):
     searchResults = JSON.parse(raw);
     renderSearchResults();
   } catch(e) {
-    document.getElementById("searchErr").textContent = "Could not fetch recipes. Check your API key and try again.";
+    document.getElementById("searchErr").textContent = "Error: " + (e.message || "Could not fetch recipes. Check your API key and try again.");
   }
   setLoading("search", false);
 });
@@ -529,7 +558,14 @@ function renderSearchResults() {
 document.getElementById("btnSuggest").addEventListener("click", async () => {
   const ing   = document.getElementById("pantryIngredients").value.trim();
   const notes = document.getElementById("pantryNotes").value.trim();
-  if (!state.apiKey || !ing) return;
+  if (!apiKeyValid(state.apiKey)) {
+    document.getElementById("suggestErr").textContent = "Please enter a valid Anthropic API key (sk-ant-…) in the header first.";
+    return;
+  }
+  if (!ing) {
+    document.getElementById("suggestErr").textContent = "Please list some ingredients first.";
+    return;
+  }
 
   setLoading("suggest", true);
   document.getElementById("suggestErr").textContent = "";
@@ -547,7 +583,7 @@ Suggest ONE ideal potjie. Return ONLY a JSON object (no markdown):
     el.innerHTML = `<h3 class="sub-title">Your Suggested Potjie</h3>` + recipeCardHTML(pantryRecipe, 0, "pantry");
     attachRecipeCardEvents(el, "pantry");
   } catch(e) {
-    document.getElementById("suggestErr").textContent = "Could not generate suggestion. Check your API key.";
+    document.getElementById("suggestErr").textContent = "Error: " + (e.message || "Could not generate suggestion. Check your API key.");
   }
   setLoading("suggest", false);
 });
