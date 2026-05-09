@@ -505,58 +505,78 @@ async function callClaude(prompt) {
   const data = await res.json();
   let text = data.content.map(b=>b.text||"").join("");
   // Strip markdown fences
-  text = text.replace(/^```json\s*/m,"").replace(/```\s*$/m,"").trim();
-  // Extract only the JSON structure (array or object)
-  const arrMatch = text.match(/\[([\s\S]*)/);
-  const objMatch = text.match(/\{([\s\S]*)/);
-  if (arrMatch) {
-    text = "[" + arrMatch[1];
-    // If truncated, attempt to close open structures
-    text = repairJson(text, "array");
-  } else if (objMatch) {
-    text = "{" + objMatch[1];
+  text = text.replace(/^```json\s*/m,"").replace(/^```\s*/m,"").replace(/```\s*$/m,"").trim();
+  // Find the FIRST top-level { or [ to determine type, ignoring inner brackets
+  const firstCurly  = text.indexOf('{');
+  const firstSquare = text.indexOf('[');
+  if (firstCurly !== -1 && (firstSquare === -1 || firstCurly < firstSquare)) {
+    // Object response (pantry suggest)
+    text = text.slice(firstCurly);
     text = repairJson(text, "object");
+  } else if (firstSquare !== -1) {
+    // Array response (recipe search)
+    text = text.slice(firstSquare);
+    text = repairJson(text, "array");
   }
   return text.trim();
 }
 
 function repairJson(str, type) {
-  // Count opens vs closes to detect truncation
-  let opens = 0, closes = 0;
-  let inStr = false, esc = false;
+  // Walk forward tracking string/escape/bracket state.
+  // Record the last index where the top-level structure was fully balanced (safeEnd).
+  let inStr = false, esc = false, stack = [], safeEnd = -1;
   for (let i = 0; i < str.length; i++) {
     const c = str[i];
-    if (esc) { esc = false; continue; }
-    if (c === '\\') { esc = true; continue; }
-    if (c === '"' && !esc) { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{' || c === '[') opens++;
-    if (c === '}' || c === ']') closes++;
+    if (esc)            { esc = false; continue; }
+    if (c === '\\')    { esc = true;  continue; }
+    if (c === '"')      { inStr = !inStr; continue; }
+    if (inStr)          continue;
+    if (c === '{' || c === '[') stack.push(c === '{' ? '}' : ']');
+    else if ((c === '}' || c === ']') && stack.length) {
+      stack.pop();
+      if (stack.length === 0) safeEnd = i;
+    }
   }
-  if (opens === closes) return str; // balanced, no repair needed
-  // Remove trailing incomplete token (unterminated string / incomplete key)
-  // Find last complete object boundary
-  let repaired = str;
-  // Remove trailing comma + incomplete content
-  repaired = repaired.replace(/,\s*[^,\]\}]*$/, "");
-  // Remove trailing unterminated string
-  repaired = repaired.replace(/,?\s*"[^"]*$/, "");
-  // Close open braces/brackets
-  let depth = { '{': 0, '[': 0 };
-  let stack = [];
+  if (stack.length === 0) return str; // already valid
+
+  let repaired;
+  if (safeEnd >= 0) {
+    // At least one top-level item completed — drop everything after that point.
+    // This cleanly removes any truncated trailing item.
+    repaired = str.slice(0, safeEnd + 1);
+  } else {
+    // Nothing ever balanced at the top level (single truncated object/array).
+    // Find the last position that closed a string or bracket at ANY depth.
+    let lastStruct = -1;
+    inStr = false; esc = false;
+    for (let i = 0; i < str.length; i++) {
+      const c = str[i];
+      if (esc)           { esc = false; continue; }
+      if (c === '\\')   { esc = true;  continue; }
+      if (c === '"')     { if (inStr) { lastStruct = i; } inStr = !inStr; continue; }
+      if (inStr)         continue;
+      if (c === '}' || c === ']') lastStruct = i;
+    }
+    repaired = lastStruct >= 0 ? str.slice(0, lastStruct + 1) : str;
+    // Strip any orphaned key-colon or trailing key that lost its value
+    repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*$/, "");
+    repaired = repaired.replace(/,\s*"[^"]*"\s*$/, "");
+    repaired = repaired.replace(/,\s*$/, "");
+  }
+
+  // Append closing brackets for any still-open structures
+  let closeStack = [];
   inStr = false; esc = false;
   for (let i = 0; i < repaired.length; i++) {
     const c = repaired[i];
-    if (esc) { esc = false; continue; }
-    if (c === '\\') { esc = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{') stack.push('}');
-    if (c === '[') stack.push(']');
-    if ((c === '}' || c === ']') && stack.length) stack.pop();
+    if (esc)           { esc = false; continue; }
+    if (c === '\\')   { esc = true;  continue; }
+    if (c === '"')     { inStr = !inStr; continue; }
+    if (inStr)         continue;
+    if (c === '{' || c === '[') closeStack.push(c === '{' ? '}' : ']');
+    if ((c === '}' || c === ']') && closeStack.length) closeStack.pop();
   }
-  // Close in reverse
-  while (stack.length) repaired += stack.pop();
+  while (closeStack.length) repaired += closeStack.pop();
   return repaired;
 }
 
@@ -646,7 +666,6 @@ Suggest ONE ideal potjie. Be concise but complete. Return ONLY a valid JSON obje
 //  Recipe Card HTML
 // ═══════════════════════════════════════════════════════════════════════
 function recipeCardHTML(r, idx, ns) {
-  const albumOpts = state.albums.map(a=>`<option value="${a.id}">${escHtml(a.name)}</option>`).join("");
   return `
 <div class="recipe-card" data-idx="${idx}" data-ns="${ns}">
   <div class="row" style="cursor:pointer;margin-bottom:8px" data-toggle="${ns}-${idx}">
@@ -670,12 +689,7 @@ function recipeCardHTML(r, idx, ns) {
     <button class="btn btn-ghost btn-sm" data-toggle="${ns}-${idx}">▼ Show Recipe</button>
     <button class="btn btn-ghost btn-sm" data-print="${idx}" data-ns="${ns}">🖨 Print</button>
     <button class="btn btn-ghost btn-sm" data-share="${idx}" data-ns="${ns}">📲 WhatsApp</button>
-    ${state.albums.length ? `
-      <select class="btn-sm" style="padding:5px 8px;font-size:12px;width:auto" data-albumsel="${ns}-${idx}">
-        <option value="">Save to album…</option>${albumOpts}
-      </select>
-      <button class="btn btn-gold btn-sm" data-save="${ns}-${idx}">💾 Save</button>
-    ` : `<span style="font-size:12px;color:var(--muted)">Create an album in My Recipes to save this.</span>`}
+    <span class="save-area" data-savearea="${ns}-${idx}"></span>
   </div>
 </div>`;
 }
@@ -700,7 +714,50 @@ ${r.tips ? `<div class="tip-box"><strong>💡 TIP: </strong>${escHtml(r.tips)}</
 ${r.substitutions ? `<div class="sub-box"><strong>🔄 SUBSTITUTIONS: </strong>${escHtml(r.substitutions)}</div>` : ""}`;
 }
 
+function buildAlbumOpts() {
+  if (!state.albums.length) return '<span style="font-size:12px;color:var(--muted)">Create an album in My Recipes to save this.</span>';
+  const opts = state.albums.map(a=>`<option value="${a.id}">${escHtml(a.name)}</option>`).join("");
+  return `<select class="btn-sm" style="padding:5px 8px;font-size:12px;width:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--cream)" data-albumselinner>
+    <option value="">Save to album…</option>${opts}
+  </select>
+  <button class="btn btn-gold btn-sm" data-saveinner>💾 Save</button>`;
+}
+
+function refreshSaveAreas(container, ns) {
+  container.querySelectorAll("[data-savearea]").forEach(area => {
+    const key = area.dataset.savearea;
+    area.innerHTML = buildAlbumOpts();
+    // attach inner save button
+    const saveBtn = area.querySelector("[data-saveinner]");
+    if (!saveBtn) return;
+    saveBtn.addEventListener("click", () => {
+      const sel = area.querySelector("[data-albumselinner]");
+      const albumId = sel ? sel.value : "";
+      if (!albumId) {
+        sel && sel.style.setProperty("border-color", "var(--danger)");
+        setTimeout(() => sel && sel.style.removeProperty("border-color"), 1500);
+        return;
+      }
+      const [nsKey, idxStr] = key.split(/-(.+)/); // split on first dash only
+      const r = nsKey === "pantry" ? pantryRecipe : searchResults[parseInt(idxStr)];
+      if (!r) return;
+      addRecipeToAlbum(r, albumId);
+      saveBtn.textContent = "✓ Saved!";
+      saveBtn.disabled = true;
+      setTimeout(() => { saveBtn.textContent = "💾 Save"; saveBtn.disabled = false; }, 2500);
+    });
+  });
+}
+
+// Track all rendered recipe containers so we can refresh their save areas when albums change
+const _renderedContainers = [];
+function refreshAllSaveAreas() {
+  _renderedContainers.forEach(({container, ns}) => refreshSaveAreas(container, ns));
+}
+
 function attachRecipeCardEvents(container, ns) {
+  _renderedContainers.push({container, ns});
+  refreshSaveAreas(container, ns);
   // toggle expand
   container.querySelectorAll("[data-toggle]").forEach(el => {
     el.addEventListener("click", () => {
@@ -729,20 +786,6 @@ function attachRecipeCardEvents(container, ns) {
       shareRecipe(r);
     });
   });
-  // save
-  container.querySelectorAll("[data-save]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const key = btn.dataset.save;
-      const sel = container.querySelector(`[data-albumsel="${key}"]`);
-      const albumId = sel ? sel.value : "";
-      if (!albumId) return;
-      const [, idxStr] = key.split("-");
-      const r = ns === "pantry" ? pantryRecipe : searchResults[parseInt(idxStr)];
-      addRecipeToAlbum(r, albumId);
-      btn.textContent = "✓ Saved!";
-      setTimeout(()=>{ btn.textContent = "💾 Save"; }, 2000);
-    });
-  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -769,6 +812,7 @@ function createAlbum() {
   saveState();
   input.value = "";
   renderAlbumList();
+  refreshAllSaveAreas(); // update dropdowns on search/pantry tabs
 }
 
 function renderAlbumList() {
