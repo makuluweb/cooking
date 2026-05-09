@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🪔 Potjie One Pot Wonder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Code+Pro:wght@400&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #1a0f08;
+    --surface:  #241408;
+    --card:     #2e1a0a;
+    --border:   #5a3018;
+    --accent:   #e07b30;
+    --accentDk: #b55a18;
+    --gold:     #d4a843;
+    --cream:    #f5e6c8;
+    --muted:    #8a6040;
+    --text:     #f0dcc0;
+    --textDim:  #a07850;
+    --danger:   #c0392b;
+    --success:  #27ae60;
+  }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  @keyframes fadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Lora', Georgia, serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--surface) 0%, #1f1005 100%);
+    border-bottom: 2px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-shadow: 0 4px 24px #0008;
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: .02em;
+    padding: 14px 0;
+    user-select: none;
+  }
+  .logo span { color: var(--gold); }
+  .api-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    flex-wrap: wrap;
+  }
+  .api-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing:.08em; }
+  #apiKeyInput {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--cream);
+    font-family: 'Source Code Pro', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    width: 210px;
+    outline: none;
+  }
+  #apiDot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--danger);
+    display: inline-block;
+    margin-left: 2px;
+    transition: background .3s;
+  }
+
+  /* ── Tabs ── */
+  nav {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: none;
+    white-space: nowrap;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Main ── */
+  main { flex:1; padding: 24px 20px; max-width: 900px; margin: 0 auto; width:100%; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn .3s ease; }
+
+  /* ── Cards & Inputs ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card.warn { border-color: var(--gold); background: #241a00; }
+  .warn-text { color: var(--gold); font-size: 13px; }
+
+  input[type=text], input[type=password], input[type=search], textarea, select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--cream);
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    width: 100%;
+    outline: none;
+    resize: vertical;
+  }
+  select { resize: none; cursor: pointer; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    font-size: 14px;
+    transition: opacity .15s, transform .1s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn-primary  { background: var(--accent); color: var(--bg); }
+  .btn-gold     { background: var(--gold);   color: var(--bg); }
+  .btn-danger   { background: var(--danger); color: #fff; }
+  .btn-ghost    { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-sm       { padding: 5px 11px; font-size: 12px; }
+
+  /* ── Typography ── */
+  h2.section-title { font-family:'Playfair Display',serif; font-size:22px; color:var(--gold); margin-bottom:16px; }
+  h3.sub-title      { font-family:'Playfair Display',serif; font-size:17px; color:var(--accent); margin-bottom:10px; }
+  .label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .prose { font-size:14px; line-height:1.75; color:var(--cream); white-space:pre-wrap; }
+  .dim   { color: var(--textDim); }
+  hr.divider { border:none; border-top:1px solid var(--border); margin:16px 0; }
+
+  /* ── Chips ── */
+  .chips { display:flex; flex-wrap:wrap; gap:0; }
+  .chip {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    margin: 3px;
+    user-select: none;
+    font-family: 'Lora', serif;
+    transition: background .15s, color .15s;
+  }
+  .chip.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  /* ── Tags ── */
+  .tag {
+    display:inline-block; font-size:11px; padding:2px 8px;
+    border-radius:4px; background:#e07b3022; color:var(--accent);
+    border:1px solid #e07b3044; margin-right:4px; margin-bottom:4px;
+  }
+
+  /* ── Row / Col helpers ── */
+  .row   { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .row-nb { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+  .flex1 { flex:1; min-width:0; }
+  .flex2 { flex:2; min-width:0; }
+
+  /* ── Spinner ── */
+  .spinner {
+    display:inline-block; width:18px; height:18px;
+    border:3px solid var(--border); border-top-color:var(--accent);
+    border-radius:50%; animation:spin .8s linear infinite; margin-left:10px;
+    vertical-align:middle;
+  }
+
+  /* ── Recipe card ── */
+  .recipe-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    animation: fadeIn .35s ease;
+  }
+  .recipe-meta { font-size:12px; color:var(--muted); text-align:right; line-height:1.8; }
+  .recipe-intro { font-size:13px; color:var(--textDim); margin:4px 0 10px; }
+  .recipe-body { animation: fadeIn .3s ease; }
+  .tip-box  { background:#d4a84318; border:1px solid #d4a84344; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px; color:var(--cream); }
+  .sub-box  { background:#e07b3012; border:1px solid #e07b3033; border-radius:8px; padding:10px 14px; margin-top:8px; font-size:13px; color:var(--cream); }
+  .tip-box strong { color:var(--gold); }
+  .sub-box strong { color:var(--accent); }
+
+  /* ── Album cards ── */
+  .album-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius:10px; padding:14px;
+    margin-bottom:10px; cursor:pointer;
+    transition: border-color .2s;
+  }
+  .album-card:hover { border-color: var(--accent); }
+  .album-name { font-family:'Playfair Display',serif; font-size:16px; color:var(--cream); flex:1; }
+  .recipe-item {
+    background: var(--card); border:1px solid var(--border);
+    border-radius:8px; padding:12px; margin-bottom:8px;
+  }
+
+  /* ── Two-col criteria ── */
+  .criteria-cols { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px; }
+  .criteria-col  { flex:1; min-width:200px; }
+
+  /* ── Error / info text ── */
+  .err-text { color:var(--danger); font-size:13px; margin-top:8px; }
+  .empty-msg { color:var(--muted); font-size:14px; text-align:center; margin-top:40px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="logo">🪔 Potjie <span>One Pot Wonder</span></div>
+  <div class="api-row">
+    <span class="api-label">API Key</span>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-…" autocomplete="off"/>
+    <span id="apiDot" title="Enter Anthropic API key"></span>
+  </div>
+</header>
+
+<!-- ═══ TABS ═══ -->
+<nav>
+  <button class="tab-btn active" data-tab="0">🔍 Recipe Search</button>
+  <button class="tab-btn"        data-tab="1">🥬 Suggest from Pantry</button>
+  <button class="tab-btn"        data-tab="2">📖 My Recipes</button>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+
+  <!-- API warning banner (hidden when key present) -->
+  <div id="apiBanner" class="card warn" style="display:none">
+    <span class="warn-text">⚠️ Enter your Anthropic API key above to enable AI features. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a></span>
+  </div>
+
+  <!-- ── TAB 0: Recipe Search ── -->
+  <div class="tab-panel active" id="tab0">
+    <h2 class="section-title">Find a Potjie Recipe</h2>
+    <div class="card">
+      <div style="margin-bottom:14px">
+        <span class="label">Protein</span>
+        <div class="chips" id="chipsProtein"></div>
+      </div>
+      <div class="criteria-cols">
+        <div class="criteria-col">
+          <span class="label">Pot Size / Servings</span>
+          <div class="chips" id="chipsSize"></div>
+        </div>
+        <div class="criteria-col">
+          <span class="label">Season</span>
+          <div class="chips" id="chipsSeason"></div>
+        </div>
+      </div>
+      <div class="criteria-cols">
+        <div class="criteria-col">
+          <span class="label">Occasion</span>
+          <div class="chips" id="chipsOccasion"></div>
+        </div>
+        <div class="criteria-col">
+          <span class="label">Spice Level</span>
+          <div class="chips" id="chipsSpice"></div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <span class="label">Additional Request (optional)</span>
+        <input type="text" id="searchExtra" placeholder="e.g. Karoo-style, with apricots, no onions…"/>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="btnSearch">🔥 Search Recipes</button>
+        <span class="spinner" id="searchSpinner" style="display:none"></span>
+        <span class="err-text" id="searchErr"></span>
+      </div>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- ── TAB 1: Pantry Suggest ── -->
+  <div class="tab-panel" id="tab1">
+    <h2 class="section-title">What's in Your Pantry?</h2>
+    <div class="card">
+      <div style="margin-bottom:14px">
+        <span class="label">Ingredients you have (comma-separated or one per line)</span>
+        <textarea id="pantryIngredients" rows="5"
+          placeholder="lamb shoulder, potatoes, onions, tomatoes, red wine,&#10;carrots, garlic, rosemary, Worcestershire sauce…"></textarea>
+      </div>
+      <div style="margin-bottom:14px">
+        <span class="label">Any preferences or restrictions? (optional)</span>
+        <input type="text" id="pantryNotes" placeholder="e.g. no pork, very hungry crowd, cooking on gas…"/>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" id="btnSuggest">🪄 Suggest a Potjie</button>
+        <span class="spinner" id="suggestSpinner" style="display:none"></span>
+        <span class="err-text" id="suggestErr"></span>
+      </div>
+    </div>
+    <div id="pantryResult"></div>
+  </div>
+
+  <!-- ── TAB 2: My Albums ── -->
+  <div class="tab-panel" id="tab2">
+    <div class="row" style="justify-content:space-between; margin-bottom:20px; gap:12px">
+      <h2 class="section-title" style="margin-bottom:0">My Recipe Albums</h2>
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" id="btnExport">⬇ Export JSON</button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+          ⬆ Import JSON
+          <input type="file" id="importFile" accept=".json" style="display:none"/>
+        </label>
+      </div>
+    </div>
+    <div class="card row" style="gap:10px">
+      <input type="text" id="newAlbumName" placeholder="New album name e.g. 'Winter Warmers', 'Braai Season 2025'…" style="flex:1"/>
+      <button class="btn btn-gold" id="btnCreateAlbum">+ Create Album</button>
+    </div>
+    <div id="albumList"></div>
+    <div id="albumDetail" style="display:none"></div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  Constants
+// ═══════════════════════════════════════════════════════════════════════
+const MODEL = "claude-sonnet-4-6";
+const STORAGE_KEY = "potjie_opw_v1";
+
+const PROTEIN   = ["Lamb","Beef","Chicken","Pork","Venison","Oxtail","Fish","Vegetarian","Vegan"];
+const SIZES     = ["Small (2–3)","Medium (4–6)","Large (8–12)","Braai crowd (15+)"];
+const SEASONS   = ["Spring","Summer","Autumn","Winter"];
+const OCCASIONS = ["Family Sunday","Braai","Camping","Festive","Quick weeknight","Traditional"];
+const SPICES    = ["Mild","Medium","Hot","Very hot"];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════════════════
+let state = { apiKey:"", albums:[] };
+let chipState = { protein:[], size:"", season:"", occasion:"", spice:"" };
+let searchResults = [];
+let expandedSearch = null;
+let pantryRecipe = null;
+let currentAlbumId = null;
+let expandedAlbumRecipe = null;
+
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}"); return { apiKey:"", albums:[], ...s }; }
+  catch { return { apiKey:"", albums:[] }; }
+}
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function uid() { return Math.random().toString(36).slice(2,10); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════════════════════════════════
+state = loadState();
+
+// API Key input
+const apiKeyInput = document.getElementById("apiKeyInput");
+const apiDot      = document.getElementById("apiDot");
+const apiBanner   = document.getElementById("apiBanner");
+apiKeyInput.value = state.apiKey;
+updateApiStatus();
+
+apiKeyInput.addEventListener("input", () => {
+  state.apiKey = apiKeyInput.value.trim();
+  saveState();
+  updateApiStatus();
+});
+function updateApiStatus() {
+  const ok = state.apiKey.startsWith("sk-");
+  apiDot.style.background = ok ? "var(--success)" : "var(--danger)";
+  apiDot.title = ok ? "API key set" : "Enter Anthropic API key";
+  apiBanner.style.display = ok ? "none" : "block";
+}
+
+// Tabs
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Chip builder
+// ═══════════════════════════════════════════════════════════════════════
+function buildChips(containerId, items, getActive, onToggle) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = "";
+  items.forEach(item => {
+    const c = document.createElement("span");
+    c.className = "chip" + (getActive(item) ? " on" : "");
+    c.textContent = item;
+    c.addEventListener("click", () => { onToggle(item); buildChips(containerId, items, getActive, onToggle); });
+    el.appendChild(c);
+  });
+}
+
+buildChips("chipsProtein",  PROTEIN,   i => chipState.protein.includes(i),
+  i => { chipState.protein = chipState.protein.includes(i) ? chipState.protein.filter(x=>x!==i) : [...chipState.protein, i]; });
+buildChips("chipsSize",     SIZES,     i => chipState.size === i,
+  i => { chipState.size = chipState.size === i ? "" : i; });
+buildChips("chipsSeason",   SEASONS,   i => chipState.season === i,
+  i => { chipState.season = chipState.season === i ? "" : i; });
+buildChips("chipsOccasion", OCCASIONS, i => chipState.occasion === i,
+  i => { chipState.occasion = chipState.occasion === i ? "" : i; });
+buildChips("chipsSpice",    SPICES,    i => chipState.spice === i,
+  i => { chipState.spice = chipState.spice === i ? "" : i; });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Claude API call
+// ═══════════════════════════════════════════════════════════════════════
+async function callClaude(prompt) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key": state.apiKey,
+      "anthropic-version":"2023-06-01"
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2000,
+      messages:[{ role:"user", content:prompt }]
+    })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  return data.content.map(b=>b.text||"").join("").replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TAB 0 — Search
+// ═══════════════════════════════════════════════════════════════════════
+document.getElementById("btnSearch").addEventListener("click", async () => {
+  if (!state.apiKey) return;
+  const extra = document.getElementById("searchExtra").value.trim();
+  const criteria = [
+    chipState.protein.length && `Protein: ${chipState.protein.join(", ")}`,
+    chipState.size     && `Size: ${chipState.size}`,
+    chipState.season   && `Season: ${chipState.season}`,
+    chipState.occasion && `Occasion: ${chipState.occasion}`,
+    chipState.spice    && `Spice: ${chipState.spice}`,
+    extra              && `Request: ${extra}`,
+  ].filter(Boolean).join(" | ");
+
+  setLoading("search", true);
+  document.getElementById("searchErr").textContent = "";
+  document.getElementById("searchResults").innerHTML = "";
+  expandedSearch = null;
+  searchResults = [];
+
+  try {
+    const raw = await callClaude(
+`You are a South African potjiekos expert. Generate 4 authentic potjie recipes matching: ${criteria||"general South African potjie"}.
+Return ONLY a JSON array (no markdown, no explanation):
+[{"title":"","tags":[],"time":"","size":"","difficulty":"","intro":"","ingredients":[],"method":[],"tips":""}]`
+    );
+    searchResults = JSON.parse(raw);
+    renderSearchResults();
+  } catch(e) {
+    document.getElementById("searchErr").textContent = "Could not fetch recipes. Check your API key and try again.";
+  }
+  setLoading("search", false);
+});
+
+function renderSearchResults() {
+  const el = document.getElementById("searchResults");
+  if (!searchResults.length) { el.innerHTML=""; return; }
+  el.innerHTML = `<h3 class="sub-title">${searchResults.length} Recipes Found</h3>` +
+    searchResults.map((r,i) => recipeCardHTML(r, i, "search")).join("");
+  attachRecipeCardEvents(el, "search");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TAB 1 — Pantry
+// ═══════════════════════════════════════════════════════════════════════
+document.getElementById("btnSuggest").addEventListener("click", async () => {
+  const ing   = document.getElementById("pantryIngredients").value.trim();
+  const notes = document.getElementById("pantryNotes").value.trim();
+  if (!state.apiKey || !ing) return;
+
+  setLoading("suggest", true);
+  document.getElementById("suggestErr").textContent = "";
+  document.getElementById("pantryResult").innerHTML = "";
+  pantryRecipe = null;
+
+  try {
+    const raw = await callClaude(
+`You are a South African potjiekos expert. Ingredients available: ${ing}.${notes?" Notes: "+notes:""}
+Suggest ONE ideal potjie. Return ONLY a JSON object (no markdown):
+{"title":"","tags":[],"time":"","size":"","difficulty":"","intro":"","ingredients":[],"method":[],"tips":"","substitutions":""}`
+    );
+    pantryRecipe = JSON.parse(raw);
+    const el = document.getElementById("pantryResult");
+    el.innerHTML = `<h3 class="sub-title">Your Suggested Potjie</h3>` + recipeCardHTML(pantryRecipe, 0, "pantry");
+    attachRecipeCardEvents(el, "pantry");
+  } catch(e) {
+    document.getElementById("suggestErr").textContent = "Could not generate suggestion. Check your API key.";
+  }
+  setLoading("suggest", false);
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Recipe Card HTML
+// ═══════════════════════════════════════════════════════════════════════
+function recipeCardHTML(r, idx, ns) {
+  const albumOpts = state.albums.map(a=>`<option value="${a.id}">${escHtml(a.name)}</option>`).join("");
+  return `
+<div class="recipe-card" data-idx="${idx}" data-ns="${ns}">
+  <div class="row" style="cursor:pointer;margin-bottom:8px" data-toggle="${ns}-${idx}">
+    <div class="flex1">
+      <h3 class="sub-title" style="margin-bottom:4px">🍲 ${escHtml(r.title)}</h3>
+      <div>${(r.tags||[]).map(t=>`<span class="tag">${escHtml(t)}</span>`).join("")}</div>
+    </div>
+    <div class="recipe-meta">
+      <div>⏱ ${escHtml(r.time||"")}</div>
+      <div>🔥 ${escHtml(r.difficulty||"")}</div>
+      <div>🥘 ${escHtml(r.size||"")}</div>
+    </div>
+  </div>
+  <p class="recipe-intro">${escHtml(r.intro||"")}</p>
+  <div class="recipe-body" id="body-${ns}-${idx}" style="display:none">
+    <hr class="divider"/>
+    ${recipeBodyHTML(r)}
+  </div>
+  <hr class="divider"/>
+  <div class="row" style="gap:8px">
+    <button class="btn btn-ghost btn-sm" data-toggle="${ns}-${idx}">▼ Show Recipe</button>
+    <button class="btn btn-ghost btn-sm" data-print="${idx}" data-ns="${ns}">🖨 Print</button>
+    <button class="btn btn-ghost btn-sm" data-share="${idx}" data-ns="${ns}">📲 WhatsApp</button>
+    ${state.albums.length ? `
+      <select class="btn-sm" style="padding:5px 8px;font-size:12px;width:auto" data-albumsel="${ns}-${idx}">
+        <option value="">Save to album…</option>${albumOpts}
+      </select>
+      <button class="btn btn-gold btn-sm" data-save="${ns}-${idx}">💾 Save</button>
+    ` : `<span style="font-size:12px;color:var(--muted)">Create an album in My Recipes to save this.</span>`}
+  </div>
+</div>`;
+}
+
+function recipeBodyHTML(r) {
+  return `
+<div class="row-nb" style="gap:24px;margin-bottom:16px">
+  <div class="flex1" style="min-width:180px">
+    <span class="label">Ingredients</span>
+    <ul style="padding-left:18px">
+      ${(r.ingredients||[]).map(i=>`<li class="prose" style="font-size:13px;margin-bottom:4px">${escHtml(i)}</li>`).join("")}
+    </ul>
+  </div>
+  <div style="flex:2;min-width:220px">
+    <span class="label">Method</span>
+    <ol style="padding-left:20px">
+      ${(r.method||[]).map(s=>`<li class="prose" style="font-size:13px;margin-bottom:8px">${escHtml(s)}</li>`).join("")}
+    </ol>
+  </div>
+</div>
+${r.tips ? `<div class="tip-box"><strong>💡 TIP: </strong>${escHtml(r.tips)}</div>` : ""}
+${r.substitutions ? `<div class="sub-box"><strong>🔄 SUBSTITUTIONS: </strong>${escHtml(r.substitutions)}</div>` : ""}`;
+}
+
+function attachRecipeCardEvents(container, ns) {
+  // toggle expand
+  container.querySelectorAll("[data-toggle]").forEach(el => {
+    el.addEventListener("click", () => {
+      const key = el.dataset.toggle;
+      const [, idxStr] = key.split("-");
+      const body = document.getElementById("body-" + key);
+      const btn  = container.querySelector(`.btn[data-toggle="${key}"]`);
+      const open = body.style.display === "block";
+      body.style.display = open ? "none" : "block";
+      if (btn) btn.textContent = open ? "▼ Show Recipe" : "▲ Collapse";
+    });
+  });
+  // print
+  container.querySelectorAll("[data-print]").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.idx || el.dataset.print);
+      const r = ns === "pantry" ? pantryRecipe : searchResults[idx];
+      printRecipe({ name: r.title, recipes:[r] });
+    });
+  });
+  // share
+  container.querySelectorAll("[data-share]").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.idx || el.dataset.share);
+      const r = ns === "pantry" ? pantryRecipe : searchResults[idx];
+      shareRecipe(r);
+    });
+  });
+  // save
+  container.querySelectorAll("[data-save]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.save;
+      const sel = container.querySelector(`[data-albumsel="${key}"]`);
+      const albumId = sel ? sel.value : "";
+      if (!albumId) return;
+      const [, idxStr] = key.split("-");
+      const r = ns === "pantry" ? pantryRecipe : searchResults[parseInt(idxStr)];
+      addRecipeToAlbum(r, albumId);
+      btn.textContent = "✓ Saved!";
+      setTimeout(()=>{ btn.textContent = "💾 Save"; }, 2000);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TAB 2 — Albums
+// ═══════════════════════════════════════════════════════════════════════
+function addRecipeToAlbum(recipe, albumId) {
+  state.albums = state.albums.map(a =>
+    a.id === albumId
+      ? { ...a, recipes:[...a.recipes, {...recipe, savedAt:Date.now(), id:uid()}] }
+      : a
+  );
+  saveState();
+  if (currentAlbumId === albumId) renderAlbumDetail();
+}
+
+document.getElementById("btnCreateAlbum").addEventListener("click", createAlbum);
+document.getElementById("newAlbumName").addEventListener("keydown", e => { if (e.key==="Enter") createAlbum(); });
+
+function createAlbum() {
+  const input = document.getElementById("newAlbumName");
+  const name  = input.value.trim();
+  if (!name) return;
+  state.albums.push({ id:uid(), name, recipes:[], createdAt:Date.now() });
+  saveState();
+  input.value = "";
+  renderAlbumList();
+}
+
+function renderAlbumList() {
+  const el = document.getElementById("albumList");
+  const detail = document.getElementById("albumDetail");
+  if (!currentAlbumId) {
+    detail.style.display = "none";
+    el.style.display = "block";
+  }
+  if (!state.albums.length) {
+    el.innerHTML = `<p class="empty-msg">No albums yet. Create one above, then save recipes from Search or Pantry tabs.</p>`;
+    return;
+  }
+  el.innerHTML = state.albums.map(a => `
+    <div class="album-card" data-albumid="${a.id}">
+      <div class="row">
+        <span class="album-name">📚 ${escHtml(a.name)}</span>
+        <span style="font-size:12px;color:var(--muted)">${a.recipes.length} recipe${a.recipes.length!==1?"s":""}</span>
+        <button class="btn btn-ghost btn-sm" data-printalbum="${a.id}">🖨 Print</button>
+        <button class="btn btn-danger btn-sm" data-deletealbum="${a.id}">✕</button>
+      </div>
+    </div>`).join("");
+
+  el.querySelectorAll(".album-card").forEach(card => {
+    card.addEventListener("click", e => {
+      if (e.target.closest("[data-printalbum],[data-deletealbum]")) return;
+      currentAlbumId = card.dataset.albumid;
+      renderAlbumDetail();
+    });
+  });
+  el.querySelectorAll("[data-printalbum]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const a = state.albums.find(x=>x.id===btn.dataset.printalbum);
+      if (a) printRecipe(a);
+    });
+  });
+  el.querySelectorAll("[data-deletealbum]").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (!confirm("Delete this album and all its recipes?")) return;
+      state.albums = state.albums.filter(a=>a.id!==btn.dataset.deletealbum);
+      saveState();
+      if (currentAlbumId === btn.dataset.deletealbum) { currentAlbumId=null; }
+      renderAlbumList();
+    });
+  });
+}
+
+function renderAlbumDetail() {
+  const album = state.albums.find(a=>a.id===currentAlbumId);
+  if (!album) { currentAlbumId=null; renderAlbumList(); return; }
+
+  document.getElementById("albumList").style.display = "none";
+  const detail = document.getElementById("albumDetail");
+  detail.style.display = "block";
+  detail.innerHTML = `
+    <div class="row" style="margin-bottom:16px">
+      <button class="btn btn-ghost btn-sm" id="backToAlbums">← Back</button>
+      <h3 class="sub-title" style="flex:1;margin-bottom:0">📚 ${escHtml(album.name)}</h3>
+      <button class="btn btn-ghost btn-sm" id="btnPrintAlbum">🖨 Print Album</button>
+    </div>
+    ${!album.recipes.length ? `<p style="color:var(--muted);font-size:14px">No recipes saved yet. Find recipes in Search or Pantry tabs, then save them here.</p>` : ""}
+    <div id="albumRecipes">
+    ${album.recipes.map(r => `
+      <div class="recipe-item" data-rid="${r.id}">
+        <div class="row">
+          <span style="font-family:'Playfair Display',serif;font-size:15px;color:var(--cream);flex:1;cursor:pointer" data-expandr="${r.id}">
+            🍲 ${escHtml(r.title)}
+          </span>
+          <span style="font-size:11px;color:var(--muted)">${escHtml(r.time||"")}</span>
+          <button class="btn btn-ghost btn-sm" data-sharealbumr="${r.id}">📲 Share</button>
+          <button class="btn btn-ghost btn-sm" data-printalbumr="${r.id}">🖨</button>
+          <button class="btn btn-danger btn-sm" data-deleterecipe="${r.id}">✕</button>
+        </div>
+        <div id="rbody-${r.id}" style="display:none;margin-top:12px;animation:fadeIn .3s ease">
+          ${recipeBodyHTML(r)}
+        </div>
+      </div>`).join("")}
+    </div>`;
+
+  detail.querySelector("#backToAlbums").addEventListener("click", () => {
+    currentAlbumId = null;
+    detail.style.display = "none";
+    document.getElementById("albumList").style.display = "block";
+    renderAlbumList();
+  });
+  detail.querySelector("#btnPrintAlbum").addEventListener("click", () => printRecipe(album));
+
+  detail.querySelectorAll("[data-expandr]").forEach(el => {
+    el.addEventListener("click", () => {
+      const body = document.getElementById("rbody-"+el.dataset.expandr);
+      body.style.display = body.style.display==="block" ? "none" : "block";
+    });
+  });
+  detail.querySelectorAll("[data-sharealbumr]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const r = album.recipes.find(x=>x.id===btn.dataset.sharealbumr);
+      if (r) shareRecipe(r);
+    });
+  });
+  detail.querySelectorAll("[data-printalbumr]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const r = album.recipes.find(x=>x.id===btn.dataset.printalbumr);
+      if (r) printRecipe({ name:r.title, recipes:[r] });
+    });
+  });
+  detail.querySelectorAll("[data-deleterecipe]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.albums = state.albums.map(a =>
+        a.id===currentAlbumId ? {...a, recipes:a.recipes.filter(r=>r.id!==btn.dataset.deleterecipe)} : a
+      );
+      saveState();
+      renderAlbumDetail();
+    });
+  });
+}
+
+// Init albums view
+renderAlbumList();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Export / Import
+// ═══════════════════════════════════════════════════════════════════════
+document.getElementById("btnExport").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state.albums, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download="potjie_albums.json"; a.click();
+});
+document.getElementById("importFile").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (Array.isArray(data)) { state.albums = data; saveState(); renderAlbumList(); alert("Imported successfully!"); }
+    } catch { alert("Invalid JSON file."); }
+  };
+  r.readAsText(file);
+  e.target.value = "";
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Print & Share
+// ═══════════════════════════════════════════════════════════════════════
+function shareRecipe(r) {
+  let t = `🪔 *POTJIE ONE POT WONDER*\n\n*${r.title}*\n`;
+  if (r.intro) t += `\n${r.intro}\n`;
+  t += `\n⏱ ${r.time||""}  |  🔥 ${r.difficulty||""}  |  🥘 ${r.size||""}\n`;
+  t += `\n*INGREDIENTS*\n${(r.ingredients||[]).map(i=>`• ${i}`).join("\n")}`;
+  t += `\n\n*METHOD*\n${(r.method||[]).map((s,i)=>`${i+1}. ${s}`).join("\n")}`;
+  if (r.tips) t += `\n\n💡 Tip: ${r.tips}`;
+  t += "\n\n_Potjie One Pot Wonder App_";
+  window.open(`https://wa.me/?text=${encodeURIComponent(t)}`, "_blank");
+}
+
+function printRecipe(album) {
+  const recipes = album.recipes || [];
+  const recipeHtml = recipes.map(r => `
+    <div class="recipe">
+      <h2>${escHtml(r.title)}</h2>
+      <p class="meta">⏱ ${r.time||""} &nbsp;|&nbsp; 🔥 ${r.difficulty||""} &nbsp;|&nbsp; 🥘 ${r.size||""}</p>
+      ${r.intro ? `<p class="intro">${escHtml(r.intro)}</p>` : ""}
+      <div class="cols">
+        <div class="ings">
+          <h3>Ingredients</h3>
+          <ul>${(r.ingredients||[]).map(i=>`<li>${escHtml(i)}</li>`).join("")}</ul>
+        </div>
+        <div class="mth">
+          <h3>Method</h3>
+          <ol>${(r.method||[]).map(s=>`<li>${escHtml(s)}</li>`).join("")}</ol>
+        </div>
+      </div>
+      ${r.tips ? `<p class="tip">💡 ${escHtml(r.tips)}</p>` : ""}
+      ${r.substitutions ? `<p class="tip">🔄 ${escHtml(r.substitutions)}</p>` : ""}
+    </div>`).join('<div style="page-break-after:always"></div>');
+
+  const w = window.open("","_blank");
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Potjie One Pot Wonder — ${escHtml(album.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lora&display=swap" rel="stylesheet"/>
+<style>
+  body{font-family:'Lora',Georgia,serif;margin:0;padding:24px;color:#1a0f08}
+  h1{font-family:'Playfair Display',serif;font-size:28px;color:#b55a18;border-bottom:3px solid #e07b30;padding-bottom:8px}
+  h2{font-family:'Playfair Display',serif;font-size:22px;color:#1a0f08;margin-bottom:4px}
+  h3{font-family:'Playfair Display',serif;font-size:16px;color:#b55a18}
+  .meta{font-size:13px;color:#8a6040;margin-bottom:8px}
+  .intro{font-style:italic;color:#5a3018;margin-bottom:12px}
+  .cols{display:flex;gap:24px}
+  .ings{flex:1}.mth{flex:2}
+  ul,ol{padding-left:18px}
+  li{margin-bottom:6px;font-size:14px;line-height:1.6}
+  .tip{background:#fff8e1;border-left:4px solid #d4a843;padding:8px 12px;font-size:13px;margin-top:12px}
+  .recipe{margin-bottom:32px}
+  @media print{body{padding:0}}
+</style></head><body>
+<h1>🪔 Potjie One Pot Wonder — ${escHtml(album.name)}</h1>
+${recipeHtml}
+<p style="font-size:11px;color:#aaa;margin-top:32px">Generated by Potjie One Pot Wonder App</p>
+</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════════════════════════════
+function setLoading(which, on) {
+  if (which==="search") {
+    document.getElementById("searchSpinner").style.display = on ? "inline-block" : "none";
+    document.getElementById("btnSearch").disabled = on;
+  } else {
+    document.getElementById("suggestSpinner").style.display = on ? "inline-block" : "none";
+    document.getElementById("btnSuggest").disabled = on;
+  }
+}
+
+function escHtml(str) {
+  return String(str||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+</script>
+</body>
+</html>
